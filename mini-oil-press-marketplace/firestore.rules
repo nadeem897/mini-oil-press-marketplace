@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() { return request.auth != null; }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin'; }
+    function isSeller() { return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserData().role == 'seller' || getUserData().role == 'admin'); }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    match /seller_profiles/{userId} {
+      allow read: if true;
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    match /machines/{machineId} {
+      allow read: if resource.data.status == 'published' || (isAuthenticated() && resource.data.sellerId == request.auth.uid) || isAdmin();
+      allow create: if isSeller() && request.resource.data.sellerId == request.auth.uid;
+      allow update: if (isOwner(resource.data.sellerId) && request.resource.data.status != 'published') || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.sellerId == request.auth.uid) || isAdmin();
+    }
+    match /enquiries/{enquiryId} {
+      allow create: if true;
+      allow read: if isAuthenticated() && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+  }
+}
