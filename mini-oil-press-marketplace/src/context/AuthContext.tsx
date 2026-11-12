@@ -9,7 +9,7 @@ import {
   registerWithEmail as apiRegisterSeller, 
   logoutUser, 
   syncUserProfile 
-} from '../services/api';
+} from '../services/api'; 
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
